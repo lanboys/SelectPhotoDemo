@@ -3,12 +3,9 @@ package com.bing.lan.selectphoto;
 import android.app.Activity;
 import android.content.Intent;
 import android.net.Uri;
-import android.os.Bundle;
 import android.os.Environment;
 import android.provider.MediaStore;
-import android.support.v7.app.AppCompatActivity;
 import android.view.Gravity;
-import android.view.View;
 import android.widget.ImageView;
 import android.widget.Toast;
 
@@ -19,38 +16,37 @@ import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
-public class MainActivity extends AppCompatActivity implements View.OnClickListener {
+import static android.app.Activity.RESULT_OK;
+
+/**
+ * Author: 蓝兵
+ * Email: lan_bing2013@163.com
+ * Time: 2017/4/13  12:19
+ */
+public class PhotoSelectUtil {
 
     private static final int REQUEST_IMAGE_CAPTURE = 1;
-    public Activity mContext;
-    private ImageView mViewById;
+    private Activity mContext;
+    private ImageView mImageView;
     private Uri mCurrentPhotoUri;
+    private UploadListener mUploadListener;
 
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
-
-        mContext = this;
-
-        mViewById = (ImageView) findViewById(R.id.iv);
-       findViewById(R.id.button).setOnClickListener(new View.OnClickListener() {
-           @Override
-           public void onClick(View view) {
-               Intent intent = new Intent(MainActivity.this, Main2Activity.class);
-               startActivity(intent);
-           }
-       });
-
-        mViewById.setOnClickListener(this);
+    public void setUploadListener(UploadListener uploadListener) {
+        mUploadListener = uploadListener;
     }
 
-    @Override
-    public void onClick(View v) {
-        showSelectAvatarPopup();
+    public PhotoSelectUtil(Activity context) {
+        mContext = context;
     }
 
-    private void showSelectAvatarPopup() {
+    public void showSelectAvatarPopup(ImageView imageView) {
+
+        if (imageView == null) {
+            Toast.makeText(mContext, "ImageView不能为空", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        mImageView = imageView;
+
         PhotoSelectPopupWindow popupWindow = new PhotoSelectPopupWindow(mContext);
         popupWindow.setOnItemClickListener(new PhotoSelectPopupWindow.OnItemClickListener() {
             @Override
@@ -63,7 +59,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             }
         });
 
-        popupWindow.showAtLocation(mViewById, Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL, 0, 0);
+        popupWindow.showAtLocation(mImageView, Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL, 0, 0);
     }
 
     // 拍照
@@ -85,15 +81,15 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
                 mCurrentPhotoUri = photoUri;
 
-                startActivityForResult(takePictureIntent, REQUEST_IMAGE_CAPTURE);
+                mContext.startActivityForResult(takePictureIntent, REQUEST_IMAGE_CAPTURE);
             }
         }
     }
 
     // 拍照返回
-    @Override
-    public void onActivityResult(int requestCode, int resultCode, Intent data) {
-        if (resultCode == RESULT_OK) {
+    public void onSelectActivityResult(int requestCode, int resultCode, Intent data) {
+
+        if (resultCode == Activity.RESULT_OK) {
             if (requestCode == REQUEST_IMAGE_CAPTURE) {
                 beginCrop(mCurrentPhotoUri);
             } else if (requestCode == Crop.REQUEST_PICK) {
@@ -102,31 +98,31 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         }
 
         if (requestCode == Crop.REQUEST_CROP) {
+
             handleCrop(resultCode, data);
         }
     }
 
+    public interface UploadListener {
+
+        void uploadAvatar(ImageView viewById, Uri source);
+    }
+
     private void beginCrop(Uri source) {
         Uri destination = Uri.fromFile(new File(mContext.getCacheDir(), "cropped"));
-        Crop.of(source, destination).asSquare().start(this);
+        Crop.of(source, destination).asSquare().start(mContext);
     }
 
     private void handleCrop(int resultCode, Intent result) {
         if (resultCode == RESULT_OK) {
-            mViewById.setImageDrawable(null);
-            mViewById.setImageURI(Crop.getOutput(result));
-            uploadAvatar(Crop.getOutput(result));
+            mImageView.setImageDrawable(null);
+            mImageView.setImageURI(Crop.getOutput(result));
+            if (mUploadListener != null) {
+                mUploadListener.uploadAvatar(mImageView, Crop.getOutput(result));
+            }
         } else if (resultCode == Crop.RESULT_ERROR) {
             Toast.makeText(mContext, Crop.getError(result).getMessage(), Toast.LENGTH_SHORT).show();
         }
-    }
-
-    // 上传头像
-    private void uploadAvatar(Uri source) {
-        // File file = new File(source.getPath());
-        // mMinePresenter.uploadAvatar(file);
-
-        Toast.makeText(this, "上传图片", Toast.LENGTH_SHORT).show();
     }
 
     // 创建图片路径
@@ -145,7 +141,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     // 选择头像
     private void selectAvatarFromAlbum() {
-        mViewById.setImageDrawable(null);
+        //mImageView.setImageDrawable(null);
         Crop.pickImage(mContext);
     }
 }
