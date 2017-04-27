@@ -2,9 +2,12 @@ package com.bing.lan.selectphoto;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Environment;
 import android.provider.MediaStore;
+import android.util.Log;
 import android.view.Gravity;
 import android.widget.ImageView;
 import android.widget.Toast;
@@ -23,6 +26,16 @@ import static android.app.Activity.RESULT_OK;
  * Email: lan_bing2013@163.com
  * Time: 2017/4/13  12:19
  */
+
+/**
+ * 注意注册activity
+ * <p>
+ * <activity
+ * android:name="com.soundcloud.android.crop.CropImageActivity"
+ * android:screenOrientation="portrait">
+ * </activity>
+ */
+
 public class PhotoSelectUtil {
 
     private static final int REQUEST_IMAGE_CAPTURE = 1;
@@ -31,12 +44,12 @@ public class PhotoSelectUtil {
     private Uri mCurrentPhotoUri;
     private UploadListener mUploadListener;
 
-    public void setUploadListener(UploadListener uploadListener) {
-        mUploadListener = uploadListener;
-    }
-
     public PhotoSelectUtil(Activity context) {
         mContext = context;
+    }
+
+    public void setUploadListener(UploadListener uploadListener) {
+        mUploadListener = uploadListener;
     }
 
     public void showSelectAvatarPopup(ImageView imageView) {
@@ -47,14 +60,18 @@ public class PhotoSelectUtil {
         }
         mImageView = imageView;
 
-        PhotoSelectPopupWindow popupWindow = new PhotoSelectPopupWindow(mContext);
+        final PhotoSelectPopupWindow popupWindow = new PhotoSelectPopupWindow(mContext);
         popupWindow.setOnItemClickListener(new PhotoSelectPopupWindow.OnItemClickListener() {
             @Override
-            public void onItemClickListener(@PhotoSelectPopupItemType.Type int type) {
-                if (type == PhotoSelectPopupItemType.TAKE_PHOTO) {
+            public void onItemClickListener(@PhotoSelectPopupWindow.PopupItemType.Type int type) {
+                if (type == PhotoSelectPopupWindow.PopupItemType.TAKE_PHOTO) {
+                    //拍照
                     dispatchTakePictureIntent();
-                } else if (type == PhotoSelectPopupItemType.SELECT_ALBUM) {
+                } else if (type == PhotoSelectPopupWindow.PopupItemType.SELECT_ALBUM) {
+                    //相册 选择
                     selectAvatarFromAlbum();
+                } else if (type == PhotoSelectPopupWindow.PopupItemType.CANCEL) {
+                    popupWindow.dismiss();
                 }
             }
         });
@@ -91,34 +108,65 @@ public class PhotoSelectUtil {
 
         if (resultCode == Activity.RESULT_OK) {
             if (requestCode == REQUEST_IMAGE_CAPTURE) {
+                //系统拍照  界面返回
                 beginCrop(mCurrentPhotoUri);
             } else if (requestCode == Crop.REQUEST_PICK) {
+                //系统选择照片  界面返回
                 beginCrop(data.getData());
             }
         }
 
+        //裁剪图片 界面返回
         if (requestCode == Crop.REQUEST_CROP) {
-
             handleCrop(resultCode, data);
         }
     }
 
-    public interface UploadListener {
-
-        void uploadAvatar(ImageView viewById, Uri source);
-    }
-
+    //进入裁剪页面
     private void beginCrop(Uri source) {
-        Uri destination = Uri.fromFile(new File(mContext.getCacheDir(), "cropped"));
-        Crop.of(source, destination).asSquare().start(mContext);
+
+        //Uri destination = Uri.fromFile(new File(mContext.getCacheDir(), "cropped"));
+        //Crop.of(source, destination).asSquare().start(mContext);
+
+        // mImageView.setImageDrawable(null);
+        // mImageView.setImageURI(source);
+
+        File file = new File(source.getPath());
+
+        //如果返回拍照是成功的 就要将临时的文件转换Bitmap的对象
+        Bitmap bmp = BitmapFactory.decodeFile(file.getAbsolutePath());
+        // int bitmapDegress = RotateImageUtil.getBitmapDegress(file.getAbsolutePath());
+        // if (bitmapDegress!=0) {
+        //     //对图片进行旋转校验 如果图片已经出现旋转了  现在开始复位并返回
+        //     Bitmap rotateBitmapByDegress = RotateImageUtil.rotateBitmapByDegress(bmp, bitmapDegress);
+        //     mImageView.setImageBitmap(rotateBitmapByDegress);
+        // }else {
+        //     mImageView.setImageBitmap(bmp);
+        // }
+
+        Log.e("fm", (bmp == null) + "");
+
+        mImageView.setImageBitmap(bmp);
+        // return;
+
+        //回调
+        if (mUploadListener != null) {
+            mUploadListener.uploadAvatar(mImageView, file);
+        }
     }
 
     private void handleCrop(int resultCode, Intent result) {
         if (resultCode == RESULT_OK) {
             mImageView.setImageDrawable(null);
-            mImageView.setImageURI(Crop.getOutput(result));
+
+            Uri uri = Crop.getOutput(result);
+            File file = new File(uri.getPath());
+
+            mImageView.setImageURI(uri);
+
+            //回调
             if (mUploadListener != null) {
-                mUploadListener.uploadAvatar(mImageView, Crop.getOutput(result));
+                mUploadListener.uploadAvatar(mImageView, file);
             }
         } else if (resultCode == Crop.RESULT_ERROR) {
             Toast.makeText(mContext, Crop.getError(result).getMessage(), Toast.LENGTH_SHORT).show();

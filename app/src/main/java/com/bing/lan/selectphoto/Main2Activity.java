@@ -8,7 +8,9 @@ import android.view.View;
 import android.widget.ImageView;
 import android.widget.Toast;
 
-public class Main2Activity extends AppCompatActivity implements View.OnClickListener, PhotoSelectUtil.UploadListener {
+import java.io.File;
+
+public class Main2Activity extends AppCompatActivity implements View.OnClickListener,  UploadListener {
 
     private ImageView mViewById;
     private PhotoSelectUtil mSelectPhotoUtil;
@@ -34,6 +36,12 @@ public class Main2Activity extends AppCompatActivity implements View.OnClickList
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         mSelectPhotoUtil.onSelectActivityResult(requestCode, resultCode, data);
+    }
+
+    @Override
+    public void uploadAvatar(ImageView viewById, File source) {
+
+        Toast.makeText(this, "上传图片", Toast.LENGTH_SHORT).show();
     }
 
     @Override
